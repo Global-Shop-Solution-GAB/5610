@@ -1,0 +1,106 @@
+Program.Sub.ScreenSU.Start
+Gui.F_Addresses..Create
+Gui.F_Addresses..Caption("Global Address Lookup")
+Gui.F_Addresses..Size(13080,8385)
+Gui.F_Addresses..MinX(0)
+Gui.F_Addresses..MinY(0)
+Gui.F_Addresses..Position(0,0)
+Gui.F_Addresses..BackColor(-2147483633)
+Gui.F_Addresses..MousePointer(0)
+Gui.F_Addresses..Event(UnLoad,F_Addresses_UnLoad)
+Gui.F_Addresses.GsGridControl_Addresses.Create(GsGridControl)
+Gui.F_Addresses.GsGridControl_Addresses.Size(12630,7590)
+Gui.F_Addresses.GsGridControl_Addresses.Position(165,195)
+Gui.F_Addresses.GsGridControl_Addresses.Event(RowClick,GsGridControl_Addresses_RowClick)
+Gui.F_Addresses.GsGridControl_Addresses.Event(RowCellClick,GsGridControl_Addresses_RowCellClick)
+Gui.F_Addresses.GsGridControl_Addresses.Anchor(15)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.External.Include.Library("200000.lib")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+f.Intrinsic.Control.If(v.Caller.Hook,=,11560)
+	f.Intrinsic.Control.CallSub(LoadShipToID)
+	f.Intrinsic.Control.End
+f.Intrinsic.Control.EndIf
+
+F.ODBC.Connection!CON.OPENCOMPANYCONNECTION
+
+f.Intrinsic.Control.CallSub(LOAD_ADDRESSES_DT)
+F.Intrinsic.Control.CallSub(FORMAT_ADDRESSES_GV)
+Program.Sub.Main.End
+
+Program.Sub.F_Addresses_UnLoad.Start
+F.ODBC.Connection!CON.Close
+F.Intrinsic.Control.End
+Program.Sub.F_Addresses_UnLoad.End
+
+Program.Sub.LOAD_ADDRESSES_DT.Start
+v.Local.sSQL.Declare
+
+v.Local.sSQL.Set("(SELECT V_OE_MULTI_SHIP.CUSTOMER, V_OE_MULTI_SHIP.SHIP_SEQ, V_OE_MULTI_SHIP.CUSTOMER_NAME, V_OE_MULTI_SHIP.SHIP_ADDRESS1, V_OE_MULTI_SHIP.SHIP_ADDRESS2, V_OE_MULTI_SHIP.SHIP_ADDRESS3, V_OE_MULTI_SHIP.SHIP_CITY, V_OE_MULTI_SHIP.SHIP_STATE, V_OE_MULTI_SHIP.SHIP_ZIP, V_OE_MULTI_SHIP.SHIP_COUNTRY FROM V_OE_MULTI_SHIP WHERE SHIP_SEQ > '' UNION SELECT V_CUSTOMER_SHIPTO.CUSTOMER, '' AS SHIP_SEQ, V_CUSTOMER_SHIPTO.NAME_CUSTOMER_SHIP, V_CUSTOMER_SHIPTO.ADDRESS1_SHIP, V_CUSTOMER_SHIPTO.ADDRESS2_SHIP, V_CUSTOMER_INTL.ADDRESS3_SHIP, V_CUSTOMER_SHIPTO.CITY_SHIP, V_CUSTOMER_SHIPTO.STATE_SHIP, V_CUSTOMER_SHIPTO.CODE_ZIP_SHIP, V_CUSTOMER_SHIPTO.COUNTRY_SHIP FROM V_CUSTOMER_SHIPTO LEFT JOIN V_CUSTOMER_INTL ON V_CUSTOMER_SHIPTO.CUSTOMER = V_CUSTOMER_INTL.CUSTOMER) ORDER BY CUSTOMER, SHIP_SEQ;")
+
+F.Data.DataTable.CreateFromSQL("DTADDRESSES","CON",V.Local.sSQL,TRUE)
+
+GUI.F_Addresses..Visible(TRUE)
+Program.Sub.LOAD_ADDRESSES_DT.End
+
+Program.Sub.FORMAT_ADDRESSES_GV.Start
+GUI.F_Addresses.GsGridControl_Addresses.AddGridviewFromDatatable("GVADDRESSES","DTADDRESSES")
+gui.F_Addresses.GsGridControl_Addresses.SetGridviewProperty("GVADDRESSES","OptionsViewShowAutoFilterRow",True)
+gui.F_Addresses.GsGridControl_Addresses.SetGridviewProperty("GVADDRESSES","OptionsFindAlwaysVisible",True)
+
+'CUSTOMER NUMBER
+GUI.F_Addresses.GsGridControl_Addresses.SetColumnProperty("GVADDRESSES","CUSTOMER","ALLOWEDIT",FALSE)
+GUI.F_Addresses.GsGridControl_Addresses.SetColumnProperty("GVADDRESSES","CUSTOMER","READONLY",TRUE)
+'SHIP TO ID
+
+'CUSTOMER NAME
+
+
+GUI.F_Addresses.GsGridControl_Addresses.MainView("GVADDRESSES")
+Program.Sub.FORMAT_ADDRESSES_GV.End
+
+Program.Sub.GsGridControl_Addresses_RowCellClick.Start
+Program.Sub.GsGridControl_Addresses_RowCellClick.End
+
+Program.Sub.GsGridControl_Addresses_RowClick.Start
+V.Local.iClicks.Declare
+V.Local.sCUSTOMER.Declare
+v.Local.sOrderNumber.Declare
+v.Local.sFileName.Declare
+v.Local.sShipToID.Declare
+
+v.Local.iClicks.Set(v.Args.clicks)
+
+F.Intrinsic.Control.If(V.Local.iClicks,=,2)
+'401084 seq 000 f_long
+'passed id 000061
+'f.Global.General.ReadOption("401084",3,"",v.Local.sOrderNumber)
+
+	Gui.F_Addresses.GsGridControl_Addresses.GetCellValueByColumnName("GVADDRESSES","CUSTOMER",V.Args.RowIndex,V.Local.sCUSTOMER)
+	Gui.F_Addresses.GsGridControl_Addresses.GetCellValueByColumnName("GVADDRESSES","SHIP_SEQ",V.Args.RowIndex,V.Local.sShipToID)
+	F.Data.DataTable.AddRow("200000","OrdNum","000000","Mode","N","CustNum",V.Local.sCUSTOMER)
+	F.Intrinsic.Control.If(V.Local.sShipToID.Trim,<>,"")
+		f.Intrinsic.String.Build("{2}{0}{1}GAB_5610",v.Caller.User,v.Caller.CompanyCode,v.Caller.LocalGSSTempDir,v.Local.sFileName)
+		f.Intrinsic.File.String2File(v.Local.sFileName,v.Local.sShipToID)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.CallSub(200000Async)
+F.Intrinsic.Control.EndIf
+Program.Sub.GsGridControl_Addresses_RowClick.End
+
+Program.Sub.LoadShipToID.Start
+v.Local.sFileName.Declare
+v.Local.sShipToID.Declare
+v.Local.bFileExists.Declare
+
+f.Intrinsic.String.Build("{2}{0}{1}GAB_5610",v.Caller.User,v.Caller.CompanyCode,v.Caller.LocalGSSTempDir,v.Local.sFileName)
+f.Intrinsic.File.Exists(v.Local.sFileName,v.Local.bFileExists)
+f.Intrinsic.Control.If(v.Local.bFileExists,=,True)
+	f.Intrinsic.File.File2String(v.Local.sFileName,v.Local.sShipToID)
+	f.Intrinsic.File.DeleteFile(v.Local.sFileName)
+	v.Passed.000061.Set(v.Local.sShipToID)
+f.Intrinsic.Control.EndIf
+Program.Sub.LoadShipToID.End
